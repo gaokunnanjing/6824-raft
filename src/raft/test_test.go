@@ -20,7 +20,7 @@ import "sync"
 const RaftElectionTimeout = 1000 * time.Millisecond
 
 //测试写函数作用
-func TestSomefunc(t *testing.T){
+func TestSomefunc(t *testing.T) {
 	fmt.Print(string(13))
 	fmt.Print(randstring(5))
 	fmt.Print(randstring(5))
@@ -29,9 +29,9 @@ func TestSomefunc(t *testing.T){
 
 func TestInitialElection2A(t *testing.T) {
 
-	statemap[Follower]="follower"
-	statemap[Candidate]="candidate"
-	statemap[Leader]="leader"
+	statemap[Follower] = "follower"
+	statemap[Candidate] = "candidate"
+	statemap[Leader] = "leader"
 
 	servers := 3
 	cfg := make_config(t, servers, false)
@@ -71,8 +71,8 @@ func TestReElection2A(t *testing.T) {
 
 	// if the leader disconnects, a new one should be elected.
 	cfg.disconnect(leader1)
-	fmt.Printf("%v---",time.Now().Format("2006-01-02 15:04:05.000"))
-	fmt.Printf("raft%v[%v] term[%v] 节点断开\n", cfg.rafts[leader1].me,statemap[cfg.rafts[leader1].state],cfg.rafts[leader1].currentTerm)
+	fmt.Printf("%v---", time.Now().Format("2006-01-02 15:04:05.000"))
+	fmt.Printf("raft%v[%v] term[%v] 节点断开\n", cfg.rafts[leader1].me, statemap[cfg.rafts[leader1].state], cfg.rafts[leader1].currentTerm)
 	cfg.checkOneLeader()
 
 	// if the old leader rejoins, that shouldn't
@@ -132,6 +132,9 @@ func TestFailAgree2B(t *testing.T) {
 
 	// follower network disconnection
 	leader := cfg.checkOneLeader()
+	fmt.Printf("leader:%v\n", leader)
+	fmt.Printf("%v---", time.Now().Format("2006-01-02 15:04:05.000"))
+	fmt.Printf("raft:%v 断开连接\n", (leader+1)%servers)
 	cfg.disconnect((leader + 1) % servers)
 
 	// agree despite one disconnected server?
@@ -163,6 +166,12 @@ func TestFailNoAgree2B(t *testing.T) {
 
 	// 3 of 5 followers disconnect
 	leader := cfg.checkOneLeader()
+	fmt.Printf("leader:%v\n", leader)
+	fmt.Printf("%v---", time.Now().Format("2006-01-02 15:04:05.000"))
+	fmt.Printf("raft:%v 断开连接\n", (leader+1)%servers)
+	fmt.Printf("raft:%v 断开连接\n", (leader+2)%servers)
+	fmt.Printf("raft:%v 断开连接\n", (leader+3)%servers)
+
 	cfg.disconnect((leader + 1) % servers)
 	cfg.disconnect((leader + 2) % servers)
 	cfg.disconnect((leader + 3) % servers)
@@ -304,6 +313,7 @@ loop:
 	cfg.end()
 }
 
+//只有把票投出去才能重置选举时间，而不是收到投票请求就重置选举时间
 func TestRejoin2B(t *testing.T) {
 	servers := 3
 	cfg := make_config(t, servers, false)
@@ -315,6 +325,9 @@ func TestRejoin2B(t *testing.T) {
 
 	// leader network failure
 	leader1 := cfg.checkOneLeader()
+	fmt.Printf("leader1:%v\n", leader1)
+	fmt.Printf("%v---", time.Now().Format("2006-01-02 15:04:05.000"))
+	fmt.Printf("raft:%v 断开连接\n", (leader1)%servers)
 	cfg.disconnect(leader1)
 
 	// make old leader try to agree on some entries
@@ -327,16 +340,22 @@ func TestRejoin2B(t *testing.T) {
 
 	// new leader network failure
 	leader2 := cfg.checkOneLeader()
+	fmt.Printf("leader2:%v\n", leader2)
+	fmt.Printf("%v---", time.Now().Format("2006-01-02 15:04:05.000"))
+	fmt.Printf("raft:%v 断开连接\n", (leader2)%servers)
 	cfg.disconnect(leader2)
 
 	// old leader connected again
-	cfg.connect(leader1)
 
+	cfg.connect(leader1)
+	fmt.Printf("%v---", time.Now().Format("2006-01-02 15:04:05.000"))
+	fmt.Printf("leader1:%v 重新连接\n", (leader1)%servers)
 	cfg.one(104, 2, true)
 
 	// all together now
 	cfg.connect(leader2)
-
+	fmt.Printf("%v---", time.Now().Format("2006-01-02 15:04:05.000"))
+	fmt.Printf("leader2:%v 重新连接\n", (leader2)%servers)
 	cfg.one(105, servers, true)
 
 	cfg.end()
@@ -353,6 +372,10 @@ func TestBackup2B(t *testing.T) {
 
 	// put leader and one follower in a partition
 	leader1 := cfg.checkOneLeader()
+	fmt.Printf("%v---", time.Now().Format("2006-01-02 15:04:05.000"))
+	fmt.Printf("raft:%v 断开连接\n", (leader1+2)%servers)
+	fmt.Printf("raft:%v 断开连接\n", (leader1+3)%servers)
+	fmt.Printf("raft:%v 断开连接\n", (leader1+4)%servers)
 	cfg.disconnect((leader1 + 2) % servers)
 	cfg.disconnect((leader1 + 3) % servers)
 	cfg.disconnect((leader1 + 4) % servers)
@@ -360,14 +383,21 @@ func TestBackup2B(t *testing.T) {
 	// submit lots of commands that won't commit
 	for i := 0; i < 50; i++ {
 		cfg.rafts[leader1].Start(rand.Int())
+		//cfg.rafts[leader1].Start((i+1)*100)
 	}
 
 	time.Sleep(RaftElectionTimeout / 2)
-
+	fmt.Printf("%v---", time.Now().Format("2006-01-02 15:04:05.000"))
+	fmt.Printf("raft:%v 断开连接\n", (leader1+0)%servers)
+	fmt.Printf("raft:%v 断开连接\n", (leader1+1)%servers)
 	cfg.disconnect((leader1 + 0) % servers)
 	cfg.disconnect((leader1 + 1) % servers)
 
 	// allow other partition to recover
+	fmt.Printf("%v---", time.Now().Format("2006-01-02 15:04:05.000"))
+	fmt.Printf("raft:%v 重新连接\n", (leader1+2)%servers)
+	fmt.Printf("raft:%v 重新连接\n", (leader1+3)%servers)
+	fmt.Printf("raft:%v 重新连接\n", (leader1+4)%servers)
 	cfg.connect((leader1 + 2) % servers)
 	cfg.connect((leader1 + 3) % servers)
 	cfg.connect((leader1 + 4) % servers)
@@ -375,11 +405,16 @@ func TestBackup2B(t *testing.T) {
 	// lots of successful commands to new group.
 	for i := 0; i < 50; i++ {
 		cfg.one(rand.Int(), 3, true)
+		//cfg.one((i+1)*1000, 3, true)
 	}
 
 	// now another partitioned leader and one follower
 	leader2 := cfg.checkOneLeader()
 	other := (leader1 + 2) % servers
+	fmt.Printf("%v---", time.Now().Format("2006-01-02 15:04:05.000"))
+	fmt.Printf("leader2:%v \n", (leader2)%servers)
+	fmt.Printf("other:%v \n", (other)%servers)
+
 	if leader2 == other {
 		other = (leader2 + 1) % servers
 	}
@@ -388,6 +423,7 @@ func TestBackup2B(t *testing.T) {
 	// lots more commands that won't commit
 	for i := 0; i < 50; i++ {
 		cfg.rafts[leader2].Start(rand.Int())
+		//cfg.rafts[leader2].Start((i+1)*10000)
 	}
 
 	time.Sleep(RaftElectionTimeout / 2)
@@ -396,6 +432,10 @@ func TestBackup2B(t *testing.T) {
 	for i := 0; i < servers; i++ {
 		cfg.disconnect(i)
 	}
+	fmt.Printf("%v---", time.Now().Format("2006-01-02 15:04:05.000"))
+	fmt.Printf("raft:%v 重新连接\n", (leader1+0)%servers)
+	fmt.Printf("raft:%v 重新连接\n", (leader1+1)%servers)
+	fmt.Printf("raft:%v 重新连接\n", (other)%servers)
 	cfg.connect((leader1 + 0) % servers)
 	cfg.connect((leader1 + 1) % servers)
 	cfg.connect(other)
@@ -403,6 +443,7 @@ func TestBackup2B(t *testing.T) {
 	// lots of successful commands to new group.
 	for i := 0; i < 50; i++ {
 		cfg.one(rand.Int(), 3, true)
+		//cfg.one((i+1)*100000, 3, true)
 	}
 
 	// now everyone
@@ -410,7 +451,7 @@ func TestBackup2B(t *testing.T) {
 		cfg.connect(i)
 	}
 	cfg.one(rand.Int(), servers, true)
-
+	//cfg.one(1000000, servers, true)
 	cfg.end()
 }
 

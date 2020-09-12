@@ -28,10 +28,11 @@ import "fmt"
 //	s := base64.URLEncoding.EncodeToString(b)
 //	return s[0:n]
 //}
-var bianhao int=0
+var bianhao int = 0
+
 func randstring(n int) string {
-	s:="gaokungaokungaokungaokun"
-	s=strconv.Itoa(bianhao)+s
+	s := "gaokungaokungaokungaokun"
+	s = strconv.Itoa(bianhao) + s
 	bianhao++
 	return s[0:n]
 }
@@ -70,7 +71,7 @@ func make_config(t *testing.T, n int, unreliable bool) *config {
 			fmt.Printf("warning: only one CPU, which may conceal locking bugs\n")
 		}
 		//rand.Seed(makeSeed())
-		rand.Seed(888)   //固定种子便于调试
+		rand.Seed(888) //固定种子便于调试
 	})
 	runtime.GOMAXPROCS(4)
 	cfg := &config{}
@@ -105,7 +106,7 @@ func make_config(t *testing.T, n int, unreliable bool) *config {
 
 // shut down a Raft server but save its persistent state.
 func (cfg *config) crash1(i int) {
-	cfg.disconnect(i)  //节点i断开连接
+	cfg.disconnect(i)       //节点i断开连接
 	cfg.net.DeleteServer(i) // disable client connections to the server. //断开客户与这个server的链接
 
 	cfg.mu.Lock()
@@ -212,7 +213,7 @@ func (cfg *config) start1(i int) {
 		}
 	}()
 
-		//创建一个raft server
+	//创建一个raft server
 	rf := Make(ends, i, cfg.saved[i], applyCh)
 
 	cfg.mu.Lock()
@@ -250,7 +251,7 @@ func (cfg *config) connect(i int) {
 
 	// outgoing ClientEnds
 	for j := 0; j < cfg.n; j++ {
-		if cfg.connected[j] {   //如果j服务器在网络中
+		if cfg.connected[j] { //如果j服务器在网络中
 			endname := cfg.endnames[i][j]
 			cfg.net.Enable(endname, true)
 		}
@@ -382,6 +383,7 @@ func (cfg *config) nCommitted(index int) (int, interface{}) {
 		}
 
 		cfg.mu.Lock()
+		fmt.Printf("logs[%v][%v] %v\n", i, index, cfg.logs[i][index])
 		cmd1, ok := cfg.logs[i][index]
 		cfg.mu.Unlock()
 
@@ -468,7 +470,9 @@ func (cfg *config) one(cmd int, expectedServers int, retry bool) int {
 			// submitted our command; wait a while for agreement.
 			t1 := time.Now()
 			for time.Since(t1).Seconds() < 2 {
+
 				nd, cmd1 := cfg.nCommitted(index)
+				fmt.Printf("nd%v\n", nd)
 				if nd > 0 && nd >= expectedServers {
 					// committed
 					if cmd2, ok := cmd1.(int); ok && cmd2 == cmd {
